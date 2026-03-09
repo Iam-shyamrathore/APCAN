@@ -67,14 +67,11 @@ cp ../.env.example ../.env
 ### 3. Run Database Migrations
 
 ```bash
-# Initialize Alembic (first time only)
-alembic init alembic
-
-# Create initial migration
-alembic revision --autogenerate -m "Initial migration"
-
-# Apply migrations
+# Apply Phase 1 + Phase 2 migrations
 alembic upgrade head
+
+# Seed mock EHR data (optional - 50+ patients, encounters, appointments, observations)
+python -m app.seeders.mock_ehr_data
 ```
 
 ### 4. Run Development Server
@@ -125,12 +122,49 @@ View coverage report: `open htmlcov/index.html`
 - `GET /api/v1/auth/me` - Get current user info (protected)
 - `POST /api/v1/auth/refresh` - Refresh access token
 
-### Coming Soon (Phases 2-8)
+### FHIR Resources (Phase 2 ✅)
 
-- Voice streaming endpoints
-- Patient FHIR resources
-- Agent workflow triggers
+#### Patient Management
+
+- `POST /api/v1/fhir/Patient` - Create patient
+- `GET /api/v1/fhir/Patient/{id}` - Get patient by ID
+- `GET /api/v1/fhir/Patient?family=Smith&given=John` - Search patients
+- `PUT /api/v1/fhir/Patient/{id}` - Update patient
+- `DELETE /api/v1/fhir/Patient/{id}` - Soft delete patient
+
+#### Encounter Management
+
+- `POST /api/v1/fhir/Encounter` - Create encounter
+- `GET /api/v1/fhir/Encounter/{id}` - Get encounter
+- `GET /api/v1/fhir/Encounter?patient=123&status=finished` - Search encounters
+- `PUT /api/v1/fhir/Encounter/{id}` - Update encounter
+- `DELETE /api/v1/fhir/Encounter/{id}` - Soft delete encounter
+
+#### Appointment Management
+
+- `POST /api/v1/fhir/Appointment` - Create appointment
+- `GET /api/v1/fhir/Appointment/{id}` - Get appointment
+- `GET /api/v1/fhir/Appointment?patient=123&date_ge=2026-03-01` - Search appointments
+- `PATCH /api/v1/fhir/Appointment/{id}/cancel` - Cancel appointment
+- `PUT /api/v1/fhir/Appointment/{id}` - Update appointment
+- `DELETE /api/v1/fhir/Appointment/{id}` - Soft delete appointment
+
+#### Observation Management
+
+- `POST /api/v1/fhir/Observation` - Create observation (vital signs, lab results)
+- `GET /api/v1/fhir/Observation/{id}` - Get observation
+- `GET /api/v1/fhir/Observation?patient=123&code=8480-6` - Search observations
+- `PUT /api/v1/fhir/Observation/{id}` - Update observation
+- `DELETE /api/v1/fhir/Observation/{id}` - Soft delete observation
+
+**📚 Full FHIR API Documentation:** [docs/phase-2/fhir-api-guide.md](docs/phase-2/fhir-api-guide.md)
+
+### Coming Soon (Phases 3-5)
+
+- Voice streaming endpoints (Gemini Live API)
+- Agent workflow triggers (LangGraph)
 - Google Calendar integration
+- Natural language query processing
 
 ## 📁 Project Structure
 
@@ -139,13 +173,25 @@ apcan-voice-ai/
 ├── backend/
 │   ├── app/
 │   │   ├── core/          # Configuration, database, security
-│   │   ├── models/        # SQLAlchemy ORM models
+│   │   ├── models/        # SQLAlchemy ORM models (Patient, Encounter, Appointment, Observation)
 │   │   ├── routers/       # API endpoints
+│   │   │   └── fhir/      # FHIR R4 compliant endpoints (Phase 2)
 │   │   ├── schemas/       # Pydantic validation schemas
-│   │   └── services/      # Business logic
-│   ├── tests/             # Unit and integration tests
-│   └── alembic/           # Database migrations
-├── docs/                  # Project documentation
+│   │   │   └── fhir/      # FHIR resource schemas (Phase 2)
+│   │   ├── services/      # Business logic
+│   │   │   └── fhir_mapper.py  # SQLAlchemy ↔ FHIR transformation
+│   │   └── seeders/       # Mock data generators (Phase 2)
+│   ├── tests/             # Unit and integration tests (44+ tests)
+│   ├── alembic/           # Database migrations
+│   └── venv/              # Python virtual environment
+├── docs/                  # 📚 Project documentation
+│   ├── README.md          # Documentation index
+│   ├── phase-1/           # Phase 1: Core Infrastructure docs
+│   ├── phase-2/           # Phase 2: FHIR Integration docs
+│   │   ├── phase-2-implementation.md
+│   │   ├── fhir-api-guide.md
+│   │   └── code-quality-audit.md
+│   └── general/           # Setup, architecture, API reference
 └── .env.example           # Environment configuration template
 ```
 
@@ -193,10 +239,20 @@ alembic downgrade -1
 - [Phase 1 Implementation](docs/phase-1-implementation.md) - Current phase
 - [Architecture Overview](docs/architecture.md) - System design
 - [API Reference](docs/api-reference.md) - Endpoint documentation
+  **Quick Links:**
+- 📚 [Documentation Index](docs/README.md) - All documentation organized by phase
+- 🏗️ [Architecture Overview](docs/general/architecture.md) - System design and components
+- ⚙️ [Setup Guide](docs/general/SETUP.md) - Detailed installation instructions
+- 📖 [API Reference](docs/general/api-reference.md) - All API endpoints
 
-## 🤝 Contributing
+**Phase Documentation:**
 
-This is a learning project following industry best practices. See implementation phases in `/docs`.
+- ✅ [Phase 1: Core Infrastructure](docs/phase-1/phase-1-implementation.md) - Complete
+- ✅ [Phase 2: FHIR Integration](docs/phase-2/phase-2-implementation.md) - Complete
+  - 📘 [FHIR API Guide](docs/phase-2/fhir-api-guide.md) - Complete endpoint documentation
+  - 🔍 [Code Quality Audit](docs/phase-2/code-quality-audit.md) - Black, Ruff, Mypy results
+- ⏳ Phase 3: Voice AI Integration - Coming so
+  This is a learning project following industry best practices. See implementation phases in `/docs`.
 
 ## 📄 License
 

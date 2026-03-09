@@ -2,6 +2,7 @@
 Patient Pydantic Schemas
 Industry standard: FHIR-aligned validation
 """
+
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 from datetime import date, datetime
@@ -9,6 +10,7 @@ from datetime import date, datetime
 
 class PatientBase(BaseModel):
     """Base patient schema"""
+
     given_name: str = Field(..., min_length=1, max_length=100)
     family_name: str = Field(..., min_length=1, max_length=100)
     birth_date: date
@@ -22,11 +24,13 @@ class PatientBase(BaseModel):
 
 class PatientCreate(PatientBase):
     """Schema for patient creation"""
+
     user_id: int
 
 
 class PatientUpdate(BaseModel):
     """Schema for patient update"""
+
     given_name: Optional[str] = None
     family_name: Optional[str] = None
     phone: Optional[str] = None
@@ -40,8 +44,9 @@ class PatientUpdate(BaseModel):
 
 class PatientResponse(PatientBase):
     """Schema for patient response"""
+
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     user_id: int
     mrn: Optional[str]

@@ -3,6 +3,7 @@ Database Configuration - SQLAlchemy Async Engine
 Industry standard: Async PostgreSQL with proper connection pooling
 Reference: CVision/backend/app/core/database.py
 """
+
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from typing import AsyncGenerator
@@ -41,6 +42,7 @@ class Base(DeclarativeBase):
     Base class for all SQLAlchemy models
     Industry standard: Common base with metadata
     """
+
     pass
 
 

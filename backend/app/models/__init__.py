@@ -1,4 +1,5 @@
 """SQLAlchemy models"""
+
 from app.models.base import BaseModel
 from app.models.user import User, UserRole
 from app.models.patient import Patient

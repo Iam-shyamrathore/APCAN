@@ -7,6 +7,7 @@
 ## 📋 Overview
 
 Phase 2 extends the APCAN backend with HL7 FHIR R4 (Fast Healthcare Interoperability Resources) support, enabling:
+
 - Standardized patient data exchange
 - EHR system integration readiness
 - Voice AI agent access to structured clinical data
@@ -27,12 +28,14 @@ Phase 2 extends the APCAN backend with HL7 FHIR R4 (Fast Healthcare Interoperabi
 ### FHIR Resources to Implement
 
 #### 1. Patient (Already done in Phase 1, will enhance)
+
 - Core demographics
 - Contact information
 - Emergency contacts
 - Medical Record Number (MRN)
 
 #### 2. Encounter
+
 - Patient visit/admission record
 - Visit type (inpatient, outpatient, emergency)
 - Period (start/end datetime)
@@ -41,6 +44,7 @@ Phase 2 extends the APCAN backend with HL7 FHIR R4 (Fast Healthcare Interoperabi
 - Provider reference
 
 #### 3. Appointment
+
 - Scheduling future patient visits
 - DateTime and duration
 - Status (proposed, pending, booked, fulfilled, cancelled)
@@ -49,6 +53,7 @@ Phase 2 extends the APCAN backend with HL7 FHIR R4 (Fast Healthcare Interoperabi
 - Service category
 
 #### 4. Observation
+
 - Clinical measurements and findings
 - Vital signs (BP, temperature, heart rate)
 - Lab results
@@ -144,21 +149,25 @@ POST    /api/v1/fhir/Observation          # Create observation
 Each resource supports FHIR-standard search parameters:
 
 **Patient**:
+
 - `?name=John` - Search by name
 - `?birthdate=1990-01-15` - Search by birth date
 - `?identifier=MRN12345` - Search by MRN
 
 **Encounter**:
+
 - `?patient=Patient/123` - Encounters for patient
 - `?date=2026-03-01` - Encounters on date
 - `?status=in-progress` - By status
 
 **Appointment**:
+
 - `?patient=Patient/123` - Appointments for patient
 - `?date=2026-03-15` - Appointments on date
 - `?status=booked` - By status
 
 **Observation**:
+
 - `?patient=Patient/123` - Observations for patient
 - `?category=vital-signs` - By category
 - `?code=85354-9` - By LOINC code (e.g., blood pressure)
@@ -206,6 +215,7 @@ tests/
 ## 🔄 Implementation Steps
 
 ### Step 1: Database Models (Estimated: 30 min)
+
 - Create Encounter model
 - Create Appointment model
 - Create Observation model
@@ -213,6 +223,7 @@ tests/
 - Create Alembic migration
 
 ### Step 2: FHIR Schemas (Estimated: 45 min)
+
 - Create FHIR common elements (CodeableConcept, Period, etc.)
 - Create FHIR Encounter schema
 - Create FHIR Appointment schema
@@ -220,12 +231,14 @@ tests/
 - Enhance Patient schema for full FHIR compliance
 
 ### Step 3: FHIR Mapper Service (Estimated: 45 min)
+
 - SQLAlchemy → FHIR JSON transformer
 - FHIR JSON → SQLAlchemy transformer
 - Handle nested resources
 - Format datetime to FHIR standard
 
 ### Step 4: FHIR API Endpoints (Estimated: 60 min)
+
 - Patient FHIR endpoints (CRUD)
 - Encounter FHIR endpoints (CRUD)
 - Appointment FHIR endpoints (CRUD)
@@ -233,6 +246,7 @@ tests/
 - Search parameter handling
 
 ### Step 5: Mock EHR Data Seeder (Estimated: 30 min)
+
 - Generate 50+ realistic patients
 - Create encounters (past visits)
 - Create appointments (future visits)
@@ -240,6 +254,7 @@ tests/
 - CLI command to seed database
 
 ### Step 6: Integration Tests (Estimated: 60 min)
+
 - Test Patient FHIR CRUD operations
 - Test Encounter FHIR operations
 - Test Appointment FHIR operations
@@ -248,6 +263,7 @@ tests/
 - Test FHIR JSON compliance
 
 ### Step 7: Documentation (Estimated: 30 min)
+
 - Update API reference with FHIR endpoints
 - Create FHIR implementation guide
 - Document search parameters
@@ -258,11 +274,13 @@ tests/
 ## 🧪 Testing Strategy
 
 ### Unit Tests
+
 - FHIR mapper functions (SQLAlchemy ↔ FHIR JSON)
 - Search parameter parsing
 - Date range filtering
 
 ### Integration Tests
+
 - Create FHIR resource via POST
 - Read FHIR resource via GET
 - Update FHIR resource via PUT
@@ -270,6 +288,7 @@ tests/
 - Verify FHIR JSON structure compliance
 
 ### Test Coverage Goals
+
 - 100% of FHIR mapper functions
 - 100% of FHIR API endpoints
 - All search parameters tested
@@ -291,12 +310,15 @@ tests/
 ## 🔍 Code Quality Standards
 
 ### From Skills
+
 Will apply patterns from:
+
 - `backend-dev-guidelines.md` - API design, error handling
 - `clean-code.md` - Naming, function size, comments
 - `code-review-checklist.md` - Security, performance, testing
 
 ### Specific Checks
+
 - Type hints on all functions
 - Docstrings with FHIR resource references
 - Pydantic validation for all inputs
@@ -317,6 +339,7 @@ Will apply patterns from:
 ## 📝 Notes
 
 ### FHIR Resources Not Implemented (Future)
+
 - Practitioner (provider details)
 - MedicationRequest (prescriptions)
 - Condition (diagnoses)
@@ -328,17 +351,20 @@ These can be added in later phases as needed for voice AI workflows.
 ### Design Decisions
 
 **Why FHIR R4?**
+
 - Industry standard (used by Epic, Cerner, etc.)
 - Required for EHR integration
 - Voice AI agents can speak "healthcare language"
 - Future-proof for regulatory compliance
 
 **Why Soft Deletes?**
+
 - HIPAA: Never permanently delete patient data
 - Audit trail: Track who deleted what and when
 - Recovery: Can restore accidentally deleted records
 
 **Why Search Parameters?**
+
 - Voice AI needs to find "all appointments for patient John"
 - Agents query by date: "appointments this week"
 - Filter by status: "show pending appointments"

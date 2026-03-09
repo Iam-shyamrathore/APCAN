@@ -2,6 +2,7 @@
 Health Check Endpoint
 Industry standard: Kubernetes-style health probes
 """
+
 from fastapi import APIRouter, Depends, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,7 +25,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
         db_status = "healthy" if result.scalar() == 1 else "unhealthy"
     except Exception as e:
         db_status = f"unhealthy: {str(e)}"
-    
+
     return {
         "status": "healthy" if db_status == "healthy" else "degraded",
         "environment": settings.ENVIRONMENT,

@@ -2,6 +2,7 @@
 APCAN Voice AI - FastAPI Application Entry Point
 Following patterns from CVision/backend/app/main.py
 """
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,11 +23,11 @@ async def lifespan(app: FastAPI):
     # Startup: Create database tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     print(f"🚀 APCAN Voice AI started - Environment: {settings.ENVIRONMENT}")
-    
+
     yield
-    
+
     # Shutdown: Close connections
     await engine.dispose()
     print("👋 APCAN Voice AI shutting down gracefully")
