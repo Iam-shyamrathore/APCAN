@@ -2,12 +2,12 @@
 
 ## Summary
 
-| Tool  | Status | Details |
-|-------|--------|---------|
-| Black | ✅ Pass | 52 files formatted (line-length=100) |
-| Ruff  | ✅ Pass | 21 issues auto-fixed (unused imports, F-strings, etc.) |
+| Tool  | Status       | Details                                                            |
+| ----- | ------------ | ------------------------------------------------------------------ |
+| Black | ✅ Pass      | 52 files formatted (line-length=100)                               |
+| Ruff  | ✅ Pass      | 21 issues auto-fixed (unused imports, F-strings, etc.)             |
 | Mypy  | ⚠️ 44 errors | Pre-existing Phase 2 type annotation issues in FHIR schemas/mapper |
-| Tests | ✅ 112/112 | All passing (Phase 1 + Phase 2 + Phase 3) |
+| Tests | ✅ 112/112   | All passing (Phase 1 + Phase 2 + Phase 3)                          |
 
 ## Bugs Found & Fixed During Phase 3
 
@@ -68,6 +68,7 @@
 ## Mypy Remaining Issues (Pre-existing)
 
 The 44 mypy errors are all in Phase 2 code (FHIR schemas/mapper) and relate to:
+
 - Pydantic models with all-optional fields being called with partial kwargs
 - `CodeableConcept` sometimes passed a `coding` list, sometimes flat fields
 - `google.protobuf` missing type stubs
@@ -76,18 +77,18 @@ These are annotation-level issues, not runtime bugs. They can be addressed in a 
 
 ## Test Coverage
 
-| Module | Tests | Status |
-|--------|-------|--------|
-| Auth (Phase 1) | 7 | ✅ All pass |
-| Health (Phase 1) | 2 | ✅ All pass |
-| FHIR Patient (Phase 2) | 12 | ✅ All pass |
-| FHIR Encounter (Phase 2) | 7 | ✅ All pass |
-| FHIR Appointment (Phase 2) | 9 | ✅ All pass |
-| FHIR Observation (Phase 2) | 10 | ✅ All pass |
-| Conversation Manager (Phase 3) | 14 | ✅ All pass |
-| Gemini Service (Phase 3) | 10 | ✅ All pass |
-| Voice Router (Phase 3) | 12 | ✅ All pass |
-| AI FHIR Service (Phase 3) | 18 | ✅ All pass |
-| Config (Phase 3) | 6 | ✅ All pass |
-| Schemas (Phase 3) | 5 | ✅ All pass |
-| **Total** | **112** | **✅ All pass** |
+| Module                         | Tests   | Status          |
+| ------------------------------ | ------- | --------------- |
+| Auth (Phase 1)                 | 7       | ✅ All pass     |
+| Health (Phase 1)               | 2       | ✅ All pass     |
+| FHIR Patient (Phase 2)         | 12      | ✅ All pass     |
+| FHIR Encounter (Phase 2)       | 7       | ✅ All pass     |
+| FHIR Appointment (Phase 2)     | 9       | ✅ All pass     |
+| FHIR Observation (Phase 2)     | 10      | ✅ All pass     |
+| Conversation Manager (Phase 3) | 14      | ✅ All pass     |
+| Gemini Service (Phase 3)       | 10      | ✅ All pass     |
+| Voice Router (Phase 3)         | 12      | ✅ All pass     |
+| AI FHIR Service (Phase 3)      | 18      | ✅ All pass     |
+| Config (Phase 3)               | 6       | ✅ All pass     |
+| Schemas (Phase 3)              | 5       | ✅ All pass     |
+| **Total**                      | **112** | **✅ All pass** |

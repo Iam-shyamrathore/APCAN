@@ -91,13 +91,13 @@ docs/
   - AI-powered FHIR query translation (7 tools)
   - Conversation session audit trail (HIPAA)
 
-- **[Voice AI Guide](../backend/docs/phase-3/voice-ai-guide.md)**
+- **[Voice AI Guide](phase-3/voice-ai-guide.md)**
   - WebSocket protocol and message types
   - REST endpoints for session management
   - AI tool calling reference
   - Configuration settings
 
-- **[Code Quality Audit](../backend/docs/phase-3/code-quality-audit.md)**
+- **[Code Quality Audit](phase-3/code-quality-audit.md)**
   - 11 bugs found and fixed (including critical Phase 2 bugs)
   - 112/112 tests passing
   - Black/Ruff clean

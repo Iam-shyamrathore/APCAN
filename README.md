@@ -167,7 +167,7 @@ View coverage report: `open htmlcov/index.html`
 
 **AI Tools Available**: search_patients, get_patient, get_patient_encounters, get_patient_appointments, book_appointment, cancel_appointment, get_patient_observations
 
-**📚 Voice AI Guide:** [backend/docs/phase-3/voice-ai-guide.md](backend/docs/phase-3/voice-ai-guide.md)
+**📚 Voice AI Guide:** [docs/phase-3/voice-ai-guide.md](docs/phase-3/voice-ai-guide.md)
 
 ### Coming Soon (Phases 4-5)
 
@@ -196,7 +196,6 @@ apcan-voice-ai/
 │   │   │   └── conversation_manager.py # Session management (Phase 3)
 │   │   └── seeders/       # Mock data generators (Phase 2)
 │   ├── tests/             # Unit and integration tests (112 tests)
-│   ├── docs/phase-3/      # Phase 3 docs (voice-ai-guide, code-quality-audit)
 │   ├── alembic/           # Database migrations
 │   └── venv/              # Python virtual environment
 ├── docs/                  # 📚 Project documentation
@@ -204,6 +203,9 @@ apcan-voice-ai/
 │   ├── phase-1/           # Phase 1: Core Infrastructure docs
 │   ├── phase-2/           # Phase 2: FHIR Integration docs
 │   ├── phase-3/           # Phase 3: Voice AI Integration docs
+│   │   ├── phase-3-implementation.md
+│   │   ├── voice-ai-guide.md
+│   │   └── code-quality-audit.md
 │   └── general/           # Setup, architecture, API reference
 └── .env.example           # Environment configuration template
 ```
