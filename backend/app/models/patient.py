@@ -25,8 +25,9 @@ class Patient(BaseModel):
 
     __tablename__ = "patients"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, unique=True)
+    user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id"), nullable=True, unique=True
+    )
 
     # FHIR Patient.name fields
     given_name: Mapped[str] = mapped_column(String(100), nullable=False, doc="First name")

@@ -58,7 +58,9 @@ async def get_observation(observation_id: int, db: AsyncSession = Depends(get_db
     FHIR operation: GET /Observation/{id}
     """
     result = await db.execute(
-        select(Observation).where(Observation.id == observation_id, Observation.is_deleted is False)
+        select(Observation).where(
+            Observation.id == observation_id, Observation.is_deleted.is_(False)
+        )
     )
     observation = result.scalar_one_or_none()
 
@@ -101,7 +103,7 @@ async def search_observations(
     - date: Observation date (YYYY-MM-DD)
     - _count: Number of results (default 10, max 100)
     """
-    query = select(Observation).where(Observation.is_deleted is False)
+    query = select(Observation).where(Observation.is_deleted.is_(False))
 
     # Filter by patient
     if patient:
@@ -179,7 +181,9 @@ async def update_observation(
     FHIR operation: PUT /Observation/{id}
     """
     result = await db.execute(
-        select(Observation).where(Observation.id == observation_id, Observation.is_deleted is False)
+        select(Observation).where(
+            Observation.id == observation_id, Observation.is_deleted.is_(False)
+        )
     )
     observation = result.scalar_one_or_none()
 
@@ -207,7 +211,9 @@ async def delete_observation(observation_id: int, db: AsyncSession = Depends(get
     Note: Uses soft delete for HIPAA compliance
     """
     result = await db.execute(
-        select(Observation).where(Observation.id == observation_id, Observation.is_deleted is False)
+        select(Observation).where(
+            Observation.id == observation_id, Observation.is_deleted.is_(False)
+        )
     )
     observation = result.scalar_one_or_none()
 

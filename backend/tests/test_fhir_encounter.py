@@ -2,9 +2,10 @@
 Integration tests for FHIR Encounter endpoints
 Industry standard: pytest with async support
 """
+
 import pytest
 from httpx import AsyncClient
-from datetime import datetime, timedelta
+from datetime import datetime
 
 
 @pytest.mark.asyncio
@@ -17,11 +18,11 @@ async def test_create_encounter(client: AsyncClient, test_patient, test_provider
         "status": "in-progress",
         "period_start": datetime.now().isoformat(),
         "reason_code": "R51",
-        "reason_display": "Headache"
+        "reason_display": "Headache",
     }
-    
+
     response = await client.post("/api/v1/fhir/Encounter", json=encounter_data)
-    
+
     assert response.status_code == 201
     data = response.json()
     assert data["resourceType"] == "Encounter"
@@ -33,7 +34,7 @@ async def test_create_encounter(client: AsyncClient, test_patient, test_provider
 async def test_get_encounter(client: AsyncClient, test_encounter):
     """Test retrieving an encounter by ID"""
     response = await client.get(f"/api/v1/fhir/Encounter/{test_encounter.id}")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["resourceType"] == "Encounter"
@@ -45,7 +46,7 @@ async def test_get_encounter(client: AsyncClient, test_encounter):
 async def test_get_encounter_not_found(client: AsyncClient):
     """Test retrieving non-existent encounter"""
     response = await client.get("/api/v1/fhir/Encounter/99999")
-    
+
     assert response.status_code == 404
 
 
@@ -53,10 +54,9 @@ async def test_get_encounter_not_found(client: AsyncClient):
 async def test_search_encounters_by_patient(client: AsyncClient, test_encounter, test_patient):
     """Test searching encounters by patient"""
     response = await client.get(
-        "/api/v1/fhir/Encounter",
-        params={"patient": f"Patient/{test_patient.id}"}
+        "/api/v1/fhir/Encounter", params={"patient": f"Patient/{test_patient.id}"}
     )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
@@ -67,11 +67,8 @@ async def test_search_encounters_by_patient(client: AsyncClient, test_encounter,
 @pytest.mark.asyncio
 async def test_search_encounters_by_status(client: AsyncClient, test_encounter):
     """Test searching encounters by status"""
-    response = await client.get(
-        "/api/v1/fhir/Encounter",
-        params={"status": "finished"}
-    )
-    
+    response = await client.get("/api/v1/fhir/Encounter", params={"status": "finished"})
+
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
@@ -81,16 +78,10 @@ async def test_search_encounters_by_status(client: AsyncClient, test_encounter):
 @pytest.mark.asyncio
 async def test_update_encounter(client: AsyncClient, test_encounter):
     """Test updating an encounter"""
-    update_data = {
-        "status": "finished",
-        "period_end": datetime.now().isoformat()
-    }
-    
-    response = await client.put(
-        f"/api/v1/fhir/Encounter/{test_encounter.id}",
-        json=update_data
-    )
-    
+    update_data = {"status": "finished", "period_end": datetime.now().isoformat()}
+
+    response = await client.put(f"/api/v1/fhir/Encounter/{test_encounter.id}", json=update_data)
+
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "finished"
@@ -101,9 +92,9 @@ async def test_update_encounter(client: AsyncClient, test_encounter):
 async def test_delete_encounter(client: AsyncClient, test_encounter):
     """Test soft deleting an encounter"""
     response = await client.delete(f"/api/v1/fhir/Encounter/{test_encounter.id}")
-    
+
     assert response.status_code == 204
-    
+
     # Verify encounter is soft deleted
     get_response = await client.get(f"/api/v1/fhir/Encounter/{test_encounter.id}")
     assert get_response.status_code == 404
@@ -113,10 +104,10 @@ async def test_delete_encounter(client: AsyncClient, test_encounter):
 async def test_encounter_fhir_compliance(client: AsyncClient, test_encounter):
     """Test that encounter response is FHIR R4 compliant"""
     response = await client.get(f"/api/v1/fhir/Encounter/{test_encounter.id}")
-    
+
     assert response.status_code == 200
     data = response.json()
-    
+
     # Check required FHIR fields
     assert "resourceType" in data
     assert data["resourceType"] == "Encounter"
@@ -124,13 +115,13 @@ async def test_encounter_fhir_compliance(client: AsyncClient, test_encounter):
     assert "status" in data
     assert "class" in data
     assert "subject" in data
-    
+
     # Check FHIR data types
     assert isinstance(data["class"], dict)
     assert "code" in data["class"]
     assert isinstance(data["subject"], dict)
     assert "reference" in data["subject"]
-    
+
     if "period" in data:
         assert isinstance(data["period"], dict)
         assert "start" in data["period"]

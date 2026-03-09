@@ -56,7 +56,7 @@ async def get_encounter(encounter_id: int, db: AsyncSession = Depends(get_db)):
     FHIR operation: GET /Encounter/{id}
     """
     result = await db.execute(
-        select(Encounter).where(Encounter.id == encounter_id, Encounter.is_deleted is False)
+        select(Encounter).where(Encounter.id == encounter_id, Encounter.is_deleted.is_(False))
     )
     encounter = result.scalar_one_or_none()
 
@@ -91,7 +91,7 @@ async def search_encounters(
     - date: Encounter date (YYYY-MM-DD)
     - _count: Number of results (default 10, max 100)
     """
-    query = select(Encounter).where(Encounter.is_deleted is False)
+    query = select(Encounter).where(Encounter.is_deleted.is_(False))
 
     # Filter by patient
     if patient:
@@ -149,7 +149,7 @@ async def update_encounter(
     FHIR operation: PUT /Encounter/{id}
     """
     result = await db.execute(
-        select(Encounter).where(Encounter.id == encounter_id, Encounter.is_deleted is False)
+        select(Encounter).where(Encounter.id == encounter_id, Encounter.is_deleted.is_(False))
     )
     encounter = result.scalar_one_or_none()
 
@@ -177,7 +177,7 @@ async def delete_encounter(encounter_id: int, db: AsyncSession = Depends(get_db)
     Note: Uses soft delete for HIPAA compliance
     """
     result = await db.execute(
-        select(Encounter).where(Encounter.id == encounter_id, Encounter.is_deleted is False)
+        select(Encounter).where(Encounter.id == encounter_id, Encounter.is_deleted.is_(False))
     )
     encounter = result.scalar_one_or_none()
 

@@ -18,6 +18,9 @@ python-multipart==0.0.12
 google-generativeai==0.8.3
 google-cloud-logging==3.11.2
 
+# WebSocket & Voice AI (Phase 3)
+websockets==12.0
+
 # Utilities
 python-dotenv==1.0.1
 httpx==0.27.2

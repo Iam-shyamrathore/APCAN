@@ -59,7 +59,9 @@ async def get_appointment(appointment_id: int, db: AsyncSession = Depends(get_db
     FHIR operation: GET /Appointment/{id}
     """
     result = await db.execute(
-        select(Appointment).where(Appointment.id == appointment_id, Appointment.is_deleted is False)
+        select(Appointment).where(
+            Appointment.id == appointment_id, Appointment.is_deleted.is_(False)
+        )
     )
     appointment = result.scalar_one_or_none()
 
@@ -98,7 +100,7 @@ async def search_appointments(
     - date_le: Appointments on or before date (YYYY-MM-DD)
     - _count: Number of results (default 10, max 100)
     """
-    query = select(Appointment).where(Appointment.is_deleted is False)
+    query = select(Appointment).where(Appointment.is_deleted.is_(False))
 
     # Filter by patient
     if patient:
@@ -124,8 +126,7 @@ async def search_appointments(
             # Match appointments starting on this date
             query = query.where(
                 Appointment.start_datetime >= date_obj,
-                Appointment.start_datetime
-                < datetime(date_obj.year, date_obj.month, date_obj.day + 1),
+                Appointment.start_datetime < date_obj + timedelta(days=1),
             )
         except ValueError:
             raise HTTPException(
@@ -183,7 +184,9 @@ async def update_appointment(
     FHIR operation: PUT /Appointment/{id}
     """
     result = await db.execute(
-        select(Appointment).where(Appointment.id == appointment_id, Appointment.is_deleted is False)
+        select(Appointment).where(
+            Appointment.id == appointment_id, Appointment.is_deleted.is_(False)
+        )
     )
     appointment = result.scalar_one_or_none()
 
@@ -212,7 +215,9 @@ async def delete_appointment(appointment_id: int, db: AsyncSession = Depends(get
     Better practice: Update status to "cancelled" instead of deleting
     """
     result = await db.execute(
-        select(Appointment).where(Appointment.id == appointment_id, Appointment.is_deleted is False)
+        select(Appointment).where(
+            Appointment.id == appointment_id, Appointment.is_deleted.is_(False)
+        )
     )
     appointment = result.scalar_one_or_none()
 
@@ -239,7 +244,9 @@ async def cancel_appointment(
     Custom operation: PATCH /Appointment/{id}/cancel
     """
     result = await db.execute(
-        select(Appointment).where(Appointment.id == appointment_id, Appointment.is_deleted is False)
+        select(Appointment).where(
+            Appointment.id == appointment_id, Appointment.is_deleted.is_(False)
+        )
     )
     appointment = result.scalar_one_or_none()
 

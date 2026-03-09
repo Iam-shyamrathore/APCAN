@@ -36,22 +36,15 @@ async def create_patient(patient_data: PatientCreate, db: AsyncSession = Depends
         mrn=patient_data.mrn,
         given_name=patient_data.first_name,
         family_name=patient_data.last_name,
-        date_of_birth=patient_data.date_of_birth,
+        birth_date=patient_data.date_of_birth,
         gender=patient_data.gender,
         phone=patient_data.phone,
-        email=patient_data.email,
-        address_line1=patient_data.address_line1,
-        address_line2=patient_data.address_line2,
+        address_line=patient_data.address_line,
         city=patient_data.city,
         state=patient_data.state,
         postal_code=patient_data.postal_code,
-        country=patient_data.country,
         emergency_contact_name=patient_data.emergency_contact_name,
         emergency_contact_phone=patient_data.emergency_contact_phone,
-        emergency_contact_relationship=patient_data.emergency_contact_relationship,
-        insurance_provider=patient_data.insurance_provider,
-        insurance_policy_number=patient_data.insurance_policy_number,
-        insurance_group_number=patient_data.insurance_group_number,
     )
 
     db.add(patient)
@@ -69,7 +62,7 @@ async def get_patient(patient_id: int, db: AsyncSession = Depends(get_db)):
     FHIR operation: GET /Patient/{id}
     """
     result = await db.execute(
-        select(Patient).where(Patient.id == patient_id, Patient.is_deleted is False)
+        select(Patient).where(Patient.id == patient_id, Patient.is_deleted.is_(False))
     )
     patient = result.scalar_one_or_none()
 
@@ -88,7 +81,6 @@ async def search_patients(
     identifier: Optional[str] = Query(None, description="MRN or identifier"),
     birthdate: Optional[str] = Query(None, description="Date of birth (YYYY-MM-DD)"),
     gender: Optional[str] = Query(None, description="Gender (male, female, other, unknown)"),
-    email: Optional[str] = Query(None, description="Email address"),
     phone: Optional[str] = Query(None, description="Phone number"),
     _count: int = Query(10, ge=1, le=100, description="Number of results"),
     db: AsyncSession = Depends(get_db),
@@ -107,7 +99,7 @@ async def search_patients(
     - phone: Phone number - exact match
     - _count: Number of results (default 10, max 100)
     """
-    query = select(Patient).where(Patient.is_deleted is False)
+    query = select(Patient).where(Patient.is_deleted.is_(False))
 
     # Filter by family name (partial match, case-insensitive)
     if family:
@@ -127,7 +119,7 @@ async def search_patients(
 
         try:
             date_obj = datetime.strptime(birthdate, "%Y-%m-%d").date()
-            query = query.where(Patient.date_of_birth == date_obj)
+            query = query.where(Patient.birth_date == date_obj)
         except ValueError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -137,10 +129,6 @@ async def search_patients(
     # Filter by gender
     if gender:
         query = query.where(Patient.gender == gender)
-
-    # Filter by email
-    if email:
-        query = query.where(Patient.email == email)
 
     # Filter by phone
     if phone:
@@ -167,7 +155,7 @@ async def update_patient(
     FHIR operation: PUT /Patient/{id}
     """
     result = await db.execute(
-        select(Patient).where(Patient.id == patient_id, Patient.is_deleted is False)
+        select(Patient).where(Patient.id == patient_id, Patient.is_deleted.is_(False))
     )
     patient = result.scalar_one_or_none()
 
@@ -180,7 +168,10 @@ async def update_patient(
     update_data = patient_data.model_dump(exclude_unset=True)
 
     # Map field names
-    field_mapping = {"first_name": "given_name", "last_name": "family_name"}
+    field_mapping = {
+        "first_name": "given_name",
+        "last_name": "family_name",
+    }
 
     for field, value in update_data.items():
         db_field = field_mapping.get(field, field)
@@ -200,7 +191,7 @@ async def delete_patient(patient_id: int, db: AsyncSession = Depends(get_db)):
     Note: Uses soft delete for HIPAA compliance
     """
     result = await db.execute(
-        select(Patient).where(Patient.id == patient_id, Patient.is_deleted is False)
+        select(Patient).where(Patient.id == patient_id, Patient.is_deleted.is_(False))
     )
     patient = result.scalar_one_or_none()
 

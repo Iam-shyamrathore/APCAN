@@ -4,7 +4,7 @@ Reference: http://hl7.org/fhir/R4/appointment.html
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Literal
 from datetime import datetime
 
 from app.schemas.fhir import CodeableConcept, Meta
@@ -88,7 +88,7 @@ class FHIRAppointment(BaseModel):
     Full FHIR-compliant response format
     """
 
-    resourceType: str = Field(default="Appointment", const=True)
+    resourceType: Literal["Appointment"] = "Appointment"
     id: str = Field(..., description="Logical id of this artifact")
     meta: Optional[Meta] = Field(None, description="Metadata about the resource")
 

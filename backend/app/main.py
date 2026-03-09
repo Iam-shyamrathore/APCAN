@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.core.database import engine, Base
 from app.routers import auth, health
 from app.routers.fhir import encounter, appointment, observation, patient
+from app.routers import voice
 
 
 @asynccontextmanager
@@ -65,6 +66,9 @@ app.include_router(patient.router, prefix="/api/v1")
 app.include_router(encounter.router, prefix="/api/v1")
 app.include_router(appointment.router, prefix="/api/v1")
 app.include_router(observation.router, prefix="/api/v1")
+
+# Voice AI router - Phase 3
+app.include_router(voice.router, prefix="/api/v1")
 
 
 @app.get("/")

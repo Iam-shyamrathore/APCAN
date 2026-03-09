@@ -59,6 +59,21 @@ class Settings(BaseSettings):
         default=None, description="Path to Google Calendar service account JSON"
     )
 
+    # Gemini AI - Phase 3
+    GEMINI_MODEL: str = Field(default="gemini-2.0-flash", description="Gemini model name")
+    GEMINI_MAX_OUTPUT_TOKENS: int = Field(default=2048)
+    GEMINI_TEMPERATURE: float = Field(default=0.7, ge=0.0, le=2.0)
+
+    # Voice / WebSocket - Phase 3
+    WS_MAX_CONNECTIONS: int = Field(default=100, description="Max concurrent WebSocket connections")
+    WS_HEARTBEAT_INTERVAL: int = Field(default=30, description="Ping interval in seconds")
+    CONVERSATION_TIMEOUT_SECONDS: int = Field(
+        default=1800, description="Session timeout (30 min default)"
+    )
+    CONVERSATION_MAX_HISTORY: int = Field(
+        default=50, description="Max messages to keep in context window"
+    )
+
     # Redis (Session State)
     REDIS_URL: str = Field(default="redis://localhost:6379/0")
 

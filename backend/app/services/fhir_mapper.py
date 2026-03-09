@@ -3,7 +3,6 @@ FHIR Mapper Service - Convert between SQLAlchemy models and FHIR JSON
 Industry standard: HL7 FHIR R4 resource transformation
 """
 
-
 from app.models.encounter import Encounter
 from app.models.appointment import Appointment
 from app.models.observation import Observation
@@ -276,11 +275,13 @@ class FHIRMapper:
                 "critical": ("C", "Critical"),
                 "abnormal": ("A", "Abnormal"),
             }
-            code, display = interp_map.get(observation.interpretation.lower(), ("N", "Normal"))
+            interp_code, interp_display = interp_map.get(
+                observation.interpretation.lower(), ("N", "Normal")
+            )
             interpretation.append(
                 CodeableConcept(
-                    code=code,
-                    display=display,
+                    code=interp_code,
+                    display=interp_display,
                     system="http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
                 )
             )
@@ -344,15 +345,6 @@ class FHIRMapper:
         # Identifiers (MRN)
         identifiers = [Identifier(system="http://hospital.example.org/mrn", value=patient.mrn)]
 
-        # Add insurance policy number if available
-        if patient.insurance_policy_number:
-            identifiers.append(
-                Identifier(
-                    system="http://hospital.example.org/insurance-policy",
-                    value=patient.insurance_policy_number,
-                )
-            )
-
         # Human name
         names = [
             HumanName(
@@ -367,40 +359,31 @@ class FHIRMapper:
         telecom = []
         if patient.phone:
             telecom.append(ContactPoint(system="phone", value=patient.phone, use="home"))
-        if patient.email:
-            telecom.append(ContactPoint(system="email", value=patient.email, use="home"))
 
         # Address
         addresses = []
-        if patient.address_line1:
-            address_lines = [patient.address_line1]
-            if patient.address_line2:
-                address_lines.append(patient.address_line2)
-
+        if patient.address_line:
             addresses.append(
                 Address(
                     use="home",
                     type="physical",
-                    line=address_lines,
+                    line=[patient.address_line],
                     city=patient.city,
                     state=patient.state,
                     postalCode=patient.postal_code,
-                    country=patient.country,
                 )
             )
 
         # Emergency contact
         contacts = []
         if patient.emergency_contact_name and patient.emergency_contact_phone:
-            # Relationship
             relationship = [
                 CodeableConcept(
                     coding=[
                         {
                             "system": "http://terminology.hl7.org/CodeSystem/v2-0131",
                             "code": "C",
-                            "display": patient.emergency_contact_relationship
-                            or "Emergency Contact",
+                            "display": "Emergency Contact",
                         }
                     ]
                 )
@@ -423,7 +406,7 @@ class FHIRMapper:
             name=names,
             telecom=telecom if telecom else None,
             gender=patient.gender,
-            birthDate=patient.date_of_birth.isoformat(),
+            birthDate=patient.birth_date.isoformat(),
             address=addresses if addresses else None,
             contact=contacts if contacts else None,
         )

@@ -159,12 +159,21 @@ View coverage report: `open htmlcov/index.html`
 
 **📚 Full FHIR API Documentation:** [docs/phase-2/fhir-api-guide.md](docs/phase-2/fhir-api-guide.md)
 
-### Coming Soon (Phases 3-5)
+### Voice AI (Phase 3 ✅)
 
-- Voice streaming endpoints (Gemini Live API)
-- Agent workflow triggers (LangGraph)
+- `WS /api/v1/voice/ws?token={jwt}` - Real-time AI conversation (WebSocket)
+- `GET /api/v1/voice/sessions/{id}` - Get conversation history
+- `POST /api/v1/voice/sessions/{id}/end` - End conversation session
+
+**AI Tools Available**: search_patients, get_patient, get_patient_encounters, get_patient_appointments, book_appointment, cancel_appointment, get_patient_observations
+
+**📚 Voice AI Guide:** [backend/docs/phase-3/voice-ai-guide.md](backend/docs/phase-3/voice-ai-guide.md)
+
+### Coming Soon (Phases 4-5)
+
+- LangGraph multi-agent workflows
 - Google Calendar integration
-- Natural language query processing
+- Voice-to-text with Pipecat framework
 
 ## 📁 Project Structure
 
@@ -173,24 +182,28 @@ apcan-voice-ai/
 ├── backend/
 │   ├── app/
 │   │   ├── core/          # Configuration, database, security
-│   │   ├── models/        # SQLAlchemy ORM models (Patient, Encounter, Appointment, Observation)
+│   │   ├── models/        # SQLAlchemy ORM models (Patient, Encounter, Appointment, Observation, Conversation)
 │   │   ├── routers/       # API endpoints
-│   │   │   └── fhir/      # FHIR R4 compliant endpoints (Phase 2)
+│   │   │   ├── fhir/      # FHIR R4 compliant endpoints (Phase 2)
+│   │   │   └── voice.py   # WebSocket + REST voice AI endpoints (Phase 3)
 │   │   ├── schemas/       # Pydantic validation schemas
-│   │   │   └── fhir/      # FHIR resource schemas (Phase 2)
+│   │   │   ├── fhir/      # FHIR resource schemas (Phase 2)
+│   │   │   └── voice/     # WebSocket message types (Phase 3)
 │   │   ├── services/      # Business logic
-│   │   │   └── fhir_mapper.py  # SQLAlchemy ↔ FHIR transformation
+│   │   │   ├── fhir_mapper.py        # SQLAlchemy ↔ FHIR transformation
+│   │   │   ├── gemini_service.py     # Gemini 2.0 Flash integration (Phase 3)
+│   │   │   ├── ai_fhir_service.py    # AI → FHIR query bridge (Phase 3)
+│   │   │   └── conversation_manager.py # Session management (Phase 3)
 │   │   └── seeders/       # Mock data generators (Phase 2)
-│   ├── tests/             # Unit and integration tests (44+ tests)
+│   ├── tests/             # Unit and integration tests (112 tests)
+│   ├── docs/phase-3/      # Phase 3 docs (voice-ai-guide, code-quality-audit)
 │   ├── alembic/           # Database migrations
 │   └── venv/              # Python virtual environment
 ├── docs/                  # 📚 Project documentation
 │   ├── README.md          # Documentation index
 │   ├── phase-1/           # Phase 1: Core Infrastructure docs
 │   ├── phase-2/           # Phase 2: FHIR Integration docs
-│   │   ├── phase-2-implementation.md
-│   │   ├── fhir-api-guide.md
-│   │   └── code-quality-audit.md
+│   ├── phase-3/           # Phase 3: Voice AI Integration docs
 │   └── general/           # Setup, architecture, API reference
 └── .env.example           # Environment configuration template
 ```

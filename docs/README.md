@@ -1,8 +1,8 @@
 # APCAN Voice AI Documentation
 
 **Project:** Autonomous Patient Care and Administrative Navigator  
-**Version:** Phase 2 Complete  
-**Last Updated:** March 9, 2026
+**Version:** Phase 3 Complete  
+**Last Updated:** July 2025
 
 ---
 
@@ -19,6 +19,8 @@ docs/
 │   ├── phase-2-implementation.md
 │   ├── fhir-api-guide.md
 │   └── code-quality-audit.md
+├── phase-3/
+│   └── phase-3-implementation.md
 └── general/
     ├── SETUP.md
     ├── architecture.md
@@ -78,17 +80,29 @@ docs/
 
 **Status:** ✅ Complete
 
-#### Phase 3: Voice AI Integration (Coming Soon)
+#### Phase 3: Voice AI Integration
 
-📁 phase-3/ (upcoming)
+📁 [phase-3/](phase-3/)
 
-- Gemini 2.0 Flash integration
-- Voice-to-text conversation handling
-- Natural language appointment scheduling
-- Context-aware responses
-- Multi-turn dialogue management
+- **[Phase 3 Implementation](phase-3/phase-3-implementation.md)**
+  - Google Gemini 2.0 Flash integration with function calling
+  - WebSocket endpoint for real-time conversations
+  - Multi-turn conversation management with persistence
+  - AI-powered FHIR query translation (7 tools)
+  - Conversation session audit trail (HIPAA)
 
-**Status:** ⏳ Planned
+- **[Voice AI Guide](../backend/docs/phase-3/voice-ai-guide.md)**
+  - WebSocket protocol and message types
+  - REST endpoints for session management
+  - AI tool calling reference
+  - Configuration settings
+
+- **[Code Quality Audit](../backend/docs/phase-3/code-quality-audit.md)**
+  - 11 bugs found and fixed (including critical Phase 2 bugs)
+  - 112/112 tests passing
+  - Black/Ruff clean
+
+**Status:** ✅ Complete
 
 ---
 

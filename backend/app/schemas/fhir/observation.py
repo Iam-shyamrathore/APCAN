@@ -4,7 +4,7 @@ Reference: http://hl7.org/fhir/R4/observation.html
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Literal
 from datetime import datetime
 
 from app.schemas.fhir import CodeableConcept, Reference, Meta, Quantity
@@ -93,7 +93,7 @@ class FHIRObservation(BaseModel):
     Full FHIR-compliant response format
     """
 
-    resourceType: str = Field(default="Observation", const=True)
+    resourceType: Literal["Observation"] = "Observation"
     id: str = Field(..., description="Logical id of this artifact")
     meta: Optional[Meta] = Field(None, description="Metadata about the resource")
 

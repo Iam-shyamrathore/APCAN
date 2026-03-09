@@ -62,23 +62,14 @@ class PatientCreate(BaseModel):
     date_of_birth: date
     gender: str = Field(..., pattern="^(male|female|other|unknown)$")
     phone: Optional[str] = None
-    email: Optional[str] = None
-    address_line1: Optional[str] = None
-    address_line2: Optional[str] = None
+    address_line: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
     postal_code: Optional[str] = None
-    country: Optional[str] = "USA"
 
     # Emergency contact
     emergency_contact_name: Optional[str] = None
     emergency_contact_phone: Optional[str] = None
-    emergency_contact_relationship: Optional[str] = None
-
-    # Insurance
-    insurance_provider: Optional[str] = None
-    insurance_policy_number: Optional[str] = None
-    insurance_group_number: Optional[str] = None
 
 
 class PatientUpdate(BaseModel):
@@ -87,18 +78,12 @@ class PatientUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     phone: Optional[str] = None
-    email: Optional[str] = None
-    address_line1: Optional[str] = None
-    address_line2: Optional[str] = None
+    address_line: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
     postal_code: Optional[str] = None
     emergency_contact_name: Optional[str] = None
     emergency_contact_phone: Optional[str] = None
-    emergency_contact_relationship: Optional[str] = None
-    insurance_provider: Optional[str] = None
-    insurance_policy_number: Optional[str] = None
-    insurance_group_number: Optional[str] = None
 
 
 class PatientResponse(BaseModel):
@@ -112,18 +97,12 @@ class PatientResponse(BaseModel):
     gender: str
     phone: Optional[str]
     email: Optional[str]
-    address_line1: Optional[str]
-    address_line2: Optional[str]
+    address_line: Optional[str]
     city: Optional[str]
     state: Optional[str]
     postal_code: Optional[str]
-    country: Optional[str]
     emergency_contact_name: Optional[str]
     emergency_contact_phone: Optional[str]
-    emergency_contact_relationship: Optional[str]
-    insurance_provider: Optional[str]
-    insurance_policy_number: Optional[str]
-    insurance_group_number: Optional[str]
     created_at: datetime
     updated_at: Optional[datetime]
 
