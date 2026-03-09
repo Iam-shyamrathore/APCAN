@@ -32,6 +32,7 @@ class WSMessageType(str, Enum):
     STREAM_START = "stream_start"
     STREAM_CHUNK = "stream_chunk"
     STREAM_END = "stream_end"
+    AGENT_SWITCH = "agent_switch"
 
 
 class WSMessage(BaseModel):

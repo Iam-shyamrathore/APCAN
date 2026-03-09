@@ -1,8 +1,8 @@
 # APCAN Voice AI Documentation
 
 **Project:** Autonomous Patient Care and Administrative Navigator  
-**Version:** Phase 3 Complete  
-**Last Updated:** July 2025
+**Version:** Phase 4 Complete  
+**Last Updated:** March 2026
 
 ---
 
@@ -20,7 +20,12 @@ docs/
 │   ├── fhir-api-guide.md
 │   └── code-quality-audit.md
 ├── phase-3/
-│   └── phase-3-implementation.md
+│   ├── phase-3-implementation.md
+│   ├── voice-ai-guide.md
+│   └── code-quality-audit.md
+├── phase-4/
+│   ├── phase-4-implementation.md
+│   └── code-quality-audit.md
 └── general/
     ├── SETUP.md
     ├── architecture.md
@@ -101,6 +106,25 @@ docs/
   - 11 bugs found and fixed (including critical Phase 2 bugs)
   - 112/112 tests passing
   - Black/Ruff clean
+
+**Status:** ✅ Complete
+
+#### Phase 4: LangGraph Multi-Agent + Google Calendar
+
+📁 [phase-4/](phase-4/)
+
+- **[Phase 4 Implementation](phase-4/phase-4-implementation.md)**
+  - LangGraph StateGraph orchestrator with intent-based routing
+  - 4 specialised agents: Intake, Scheduling, Care, Admin
+  - 10 LangGraph tools (7 FHIR + 3 Calendar)
+  - Google Calendar API integration (service account auth)
+  - Voice router refactored from manual tool loop to graph execution
+  - 45 new tests (157 total)
+
+- **[Code Quality Audit](phase-4/code-quality-audit.md)**
+  - Black/Ruff clean
+  - Security review of agent state and Calendar API
+  - Architecture review
 
 **Status:** ✅ Complete
 

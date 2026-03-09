@@ -1,13 +1,15 @@
 """
 Voice Router - WebSocket endpoint for real-time voice AI interactions.
-Handles: session management, text/audio messaging, tool execution loop.
+Phase 4: LangGraph multi-agent orchestration replaces the manual tool loop.
 """
 
 import json
 import logging
+import time
 from typing import Optional
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query, HTTPException
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -20,9 +22,9 @@ from app.schemas.voice import (
     ConversationHistoryResponse,
     ConversationMessageResponse,
 )
-from app.services.gemini_service import gemini_service
+from app.agents.orchestrator import build_orchestrator
+from app.agents.state import make_initial_state
 from app.services.conversation_manager import ConversationManager
-from app.services.ai_fhir_service import AIFHIRService
 
 logger = logging.getLogger(__name__)
 
@@ -76,9 +78,9 @@ async def voice_websocket(
     await websocket.accept()
 
     conversation_mgr = ConversationManager(db)
-    ai_fhir = AIFHIRService(db)
+    orchestrator = build_orchestrator(db)
     session = None
-    chat = None
+    patient_context: dict = {}
 
     try:
         # Create conversation session
@@ -94,9 +96,6 @@ async def voice_websocket(
                 "message": "Connected to APCAN Voice AI. How can I help you today?",
             },
         )
-
-        # Start Gemini chat (fresh session)
-        chat = gemini_service.start_chat()
 
         # Message loop
         while True:
@@ -122,10 +121,20 @@ async def voice_websocket(
                 # Persist user message
                 await conversation_mgr.add_message(session.session_id, MessageRole.USER, text)
 
-                # Send to Gemini and handle tool call loop
+                # Run through LangGraph orchestrator
                 response = await _process_ai_turn(
-                    chat, text, ai_fhir, conversation_mgr, session.session_id, websocket
+                    orchestrator,
+                    text,
+                    conversation_mgr,
+                    session.session_id,
+                    user_id,
+                    patient_context,
+                    websocket,
                 )
+
+                # Update patient context for future turns
+                if response.get("patient_context"):
+                    patient_context = response["patient_context"]
 
                 # Send final text response
                 await _send_ws(
@@ -134,6 +143,7 @@ async def voice_websocket(
                     {
                         "text": response["text"],
                         "is_final": True,
+                        "agent": response.get("agent", "general"),
                         "tool_calls_made": response.get("tool_names", []),
                         "latency_ms": response.get("latency_ms"),
                     },
@@ -178,84 +188,91 @@ async def voice_websocket(
 
 
 async def _process_ai_turn(
-    chat,
+    orchestrator,
     user_text: str,
-    ai_fhir: AIFHIRService,
     conversation_mgr: ConversationManager,
     session_id: str,
+    user_id: int | None,
+    patient_context: dict,
     websocket: WebSocket,
 ) -> dict:
     """
-    Process a single AI turn, including iterative tool calling.
-    The AI may request multiple sequential tool calls before giving a final text answer.
+    Process a single AI turn via the LangGraph orchestrator.
+
+    The orchestrator classifies intent → routes to the appropriate agent →
+    the agent uses tools autonomously via its subgraph → returns final text.
     """
-    total_latency = 0
+    start = time.monotonic()
     tool_names: list[str] = []
-    max_tool_iterations = 5  # Safety limit to prevent infinite loops
 
-    # Initial AI call
-    result = await gemini_service.send_message(chat, user_text)
-    total_latency += result.get("latency_ms", 0)
+    # Build initial state with the user message
+    state = make_initial_state(
+        session_id=session_id,
+        user_id=user_id,
+        patient_context=patient_context,
+    )
+    state["messages"] = [HumanMessage(content=user_text)]
 
-    iteration = 0
-    while result["tool_calls"] and iteration < max_tool_iterations:
-        iteration += 1
+    # Run the graph
+    result = await orchestrator.ainvoke(
+        state,
+        config={"recursion_limit": settings.LANGGRAPH_RECURSION_LIMIT},
+    )
 
-        for tc in result["tool_calls"]:
-            tool_name = tc["name"]
-            tool_args = tc["args"]
-            tool_names.append(tool_name)
+    latency_ms = int((time.monotonic() - start) * 1000)
+    agent_name = result.get("current_agent", "general")
 
-            # Notify client about tool call
+    # Notify client which agent handled the request
+    await _send_ws(
+        websocket,
+        WSMessageType.AGENT_SWITCH,
+        {"agent": agent_name},
+    )
+
+    # Extract tool calls and final text from the message history
+    final_text = ""
+    for msg in result.get("messages", []):
+        if isinstance(msg, AIMessage):
+            if hasattr(msg, "tool_calls") and msg.tool_calls:
+                for tc in msg.tool_calls:
+                    tool_names.append(tc.get("name", "unknown"))
+                    await _send_ws(
+                        websocket,
+                        WSMessageType.TOOL_CALL,
+                        {"tool_name": tc.get("name"), "arguments": tc.get("args", {})},
+                    )
+            if msg.content:
+                final_text = msg.content  # Last AI message is the final response
+        elif isinstance(msg, ToolMessage):
             await _send_ws(
                 websocket,
-                WSMessageType.TOOL_CALL,
-                {
-                    "tool_name": tool_name,
-                    "arguments": tool_args,
-                },
+                WSMessageType.TOOL_RESULT,
+                {"tool_name": msg.name or "unknown", "success": True},
             )
-
-            # Execute tool
-            tool_result = await ai_fhir.execute_tool(tool_name, tool_args)
-
             # Persist tool interaction
             await conversation_mgr.add_message(
                 session_id,
                 MessageRole.TOOL,
-                f"Called {tool_name}",
-                tool_calls={"name": tool_name, "args": tool_args},
-                tool_results=tool_result,
+                f"Called {msg.name}",
+                tool_calls={"name": msg.name},
+                tool_results={"content": msg.content[:500] if msg.content else ""},
             )
-
-            # Notify client about tool result
-            await _send_ws(
-                websocket,
-                WSMessageType.TOOL_RESULT,
-                {
-                    "tool_name": tool_name,
-                    "success": tool_result.get("success", False),
-                },
-            )
-
-            # Send result back to Gemini
-            result = await gemini_service.send_tool_result(chat, tool_name, tool_result)
-            total_latency += result.get("latency_ms", 0)
 
     # Persist assistant response
-    await conversation_mgr.add_message(
-        session_id,
-        MessageRole.ASSISTANT,
-        result["text"],
-        tokens_used=result.get("tokens_used"),
-        latency_ms=total_latency,
-    )
+    if final_text:
+        await conversation_mgr.add_message(
+            session_id,
+            MessageRole.ASSISTANT,
+            final_text,
+            latency_ms=latency_ms,
+        )
 
     return {
-        "text": result["text"],
+        "text": final_text or "I'm sorry, I couldn't process that request. Could you try again?",
+        "agent": agent_name,
         "tool_names": tool_names,
-        "latency_ms": total_latency,
-        "tokens_used": result.get("tokens_used"),
+        "latency_ms": latency_ms,
+        "patient_context": result.get("patient_context", patient_context),
     }
 
 

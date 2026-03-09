@@ -56,7 +56,18 @@ class Settings(BaseSettings):
     # Google APIs
     GOOGLE_API_KEY: str = Field(default="", description="Google Gemini API key")
     GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON: str | None = Field(
-        default=None, description="Path to Google Calendar service account JSON"
+        default=None, description="Path to Google Calendar service account JSON or inline JSON"
+    )
+    GOOGLE_CALENDAR_ID: str = Field(
+        default="primary", description="Google Calendar ID for appointment events"
+    )
+
+    # LangGraph Multi-Agent - Phase 4
+    LANGGRAPH_RECURSION_LIMIT: int = Field(
+        default=25, ge=1, le=100, description="Max graph recursion depth"
+    )
+    LANGGRAPH_MAX_TOOL_ITERATIONS: int = Field(
+        default=10, ge=1, le=50, description="Max tool-call loops per agent turn"
     )
 
     # Gemini AI - Phase 3

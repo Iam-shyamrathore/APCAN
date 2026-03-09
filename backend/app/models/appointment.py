@@ -86,6 +86,14 @@ class Appointment(BaseModel):
         Text, nullable=True, comment="Reason for cancellation if status is cancelled"
     )
 
+    # Google Calendar integration - Phase 4
+    google_calendar_event_id: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        default=None,
+        comment="Google Calendar event ID for synced appointments",
+    )
+
     # Relationships
     patient: Mapped["Patient"] = relationship("Patient", back_populates="appointments")
     provider: Mapped[Optional["User"]] = relationship("User", back_populates="appointments")
