@@ -4,13 +4,13 @@
 
 Phase 5 hardens APCAN for production with **streaming responses**, **error boundaries**, **HIPAA audit logging**, **multi-turn memory**, **rate limiting**, and **dead code cleanup**. No new external dependencies — all features leverage existing packages.
 
-| Metric           | Value                                |
-| ---------------- | ------------------------------------ |
-| New source files | 3                                    |
-| Modified files   | 15                                   |
-| New tests        | 39                                   |
-| Total tests      | 195 (156 Phase 1-4 + 39 Phase 5)    |
-| New dependencies | 0                                    |
+| Metric           | Value                            |
+| ---------------- | -------------------------------- |
+| New source files | 3                                |
+| Modified files   | 15                               |
+| New tests        | 39                               |
+| Total tests      | 195 (156 Phase 1-4 + 39 Phase 5) |
+| New dependencies | 0                                |
 
 ## Architecture Changes
 
@@ -45,17 +45,17 @@ Phase 5 hardens APCAN for production with **streaming responses**, **error bound
 
 ### New Files Created
 
-| File                              | Purpose                                              |
-| --------------------------------- | ---------------------------------------------------- |
-| `app/models/audit_log.py`        | HIPAA-compliant immutable audit log SQLAlchemy model  |
-| `app/services/audit_service.py`  | Audit trail logging and querying service              |
-| `app/routers/audit.py`           | REST endpoint for querying audit logs                 |
+| File                            | Purpose                                              |
+| ------------------------------- | ---------------------------------------------------- |
+| `app/models/audit_log.py`       | HIPAA-compliant immutable audit log SQLAlchemy model |
+| `app/services/audit_service.py` | Audit trail logging and querying service             |
+| `app/routers/audit.py`          | REST endpoint for querying audit logs                |
 
 ### Modified Files
 
-| File                                    | Changes                                                    |
-| --------------------------------------- | ---------------------------------------------------------- |
-| `app/routers/voice.py`                 | Conversation memory, streaming, rate limiting, error relay  |
+| File                                   | Changes                                                    |
+| -------------------------------------- | ---------------------------------------------------------- |
+| `app/routers/voice.py`                 | Conversation memory, streaming, rate limiting, error relay |
 | `app/agents/orchestrator.py`           | Error boundaries on all agent nodes                        |
 | `app/agents/state.py`                  | Added `error` field to AgentState                          |
 | `app/agents/tools.py`                  | Audit logging wrapper for FHIR + Calendar tools            |
@@ -78,6 +78,7 @@ Phase 5 hardens APCAN for production with **streaming responses**, **error bound
 The voice WebSocket handler now loads prior conversation history before invoking the orchestrator. Messages are converted from the database format to LangChain `HumanMessage`/`AIMessage` objects and prepended to the state.
 
 **Flow:**
+
 1. User sends TEXT_INPUT via WebSocket
 2. `conversation_mgr.get_history(session_id)` retrieves prior messages
 3. Messages converted to LangChain types and prepended to `state["messages"]`
@@ -87,13 +88,13 @@ The voice WebSocket handler now loads prior conversation history before invoking
 
 Replaced synchronous `orchestrator.ainvoke()` with LangGraph's `astream_events(version="v2")`. Token-by-token streaming via WebSocket:
 
-| Event                 | WebSocket Message       | Description                  |
-| --------------------- | ----------------------- | ---------------------------- |
-| `on_chain_start`      | (agent tracking)        | Track active agent           |
-| `on_chat_model_stream`| STREAM_START/CHUNK/END  | Token-by-token text delivery |
-| `on_tool_start`       | TOOL_CALL               | Tool invocation notification |
-| `on_tool_end`         | TOOL_RESULT             | Tool result delivery         |
-| `on_chain_end`        | (state extraction)      | Extract final state          |
+| Event                  | WebSocket Message      | Description                  |
+| ---------------------- | ---------------------- | ---------------------------- |
+| `on_chain_start`       | (agent tracking)       | Track active agent           |
+| `on_chat_model_stream` | STREAM_START/CHUNK/END | Token-by-token text delivery |
+| `on_tool_start`        | TOOL_CALL              | Tool invocation notification |
+| `on_tool_end`          | TOOL_RESULT            | Tool result delivery         |
+| `on_chain_end`         | (state extraction)     | Extract final state          |
 
 **Fallback:** If streaming raises an exception, falls back to `orchestrator.ainvoke()`.
 
@@ -115,19 +116,19 @@ Also applied to `_classify_intent()` (defaults to GENERAL) and `_general_respons
 
 **AuditLog model** — Immutable records. Extends `Base` directly (no soft delete).
 
-| Field          | Type          | Description                    |
-| -------------- | ------------- | ------------------------------ |
-| timestamp      | DateTime(UTC) | When the action occurred       |
-| user_id        | FK → users    | Who performed the action       |
-| session_id     | String        | WebSocket session ID           |
-| agent          | String        | Which agent was active         |
-| action         | String        | tool_call / data_access        |
-| tool_name      | String        | Name of the tool called        |
-| tool_args      | JSON          | Arguments (sensitive keys stripped) |
-| patient_id     | FK → patients | Patient involved (if any)      |
-| resource_type  | String        | FHIR resource type             |
-| success        | Boolean       | Whether the call succeeded     |
-| error_message  | String        | Error details (if failed)      |
+| Field         | Type          | Description                         |
+| ------------- | ------------- | ----------------------------------- |
+| timestamp     | DateTime(UTC) | When the action occurred            |
+| user_id       | FK → users    | Who performed the action            |
+| session_id    | String        | WebSocket session ID                |
+| agent         | String        | Which agent was active              |
+| action        | String        | tool_call / data_access             |
+| tool_name     | String        | Name of the tool called             |
+| tool_args     | JSON          | Arguments (sensitive keys stripped) |
+| patient_id    | FK → patients | Patient involved (if any)           |
+| resource_type | String        | FHIR resource type                  |
+| success       | Boolean       | Whether the call succeeded          |
+| error_message | String        | Error details (if failed)           |
 
 **Sensitive arg sanitization:** `_sanitize_args()` strips `password`, `token`, `secret`, `api_key`, `credentials` before persisting.
 
@@ -162,18 +163,18 @@ RATE_LIMIT_MESSAGES_PER_MINUTE: int = 30  # 1-300 range validated
 
 39 new tests across 9 test classes:
 
-| Class                      | Tests | Coverage                                    |
-| -------------------------- | ----- | ------------------------------------------- |
-| TestConversationMemory     | 3     | History loading, limits, state prepend       |
-| TestStreamingWSTypes       | 3     | STREAM_START/CHUNK/END existence             |
-| TestAgentErrorBoundaries   | 5     | Error field, fallbacks, safe agent call      |
-| TestAuditLogModel          | 3     | Table structure, columns, repr               |
-| TestAuditService           | 9     | Tool calls, data access, filters, sanitize   |
-| TestAuditEndpoint          | 3     | REST endpoint empty/data/filtered            |
-| TestRateLimiting           | 4     | Under/over limit, window expiry, disabled    |
-| TestDeprecationFixes       | 3     | UTC helpers, removed dead code               |
-| TestWSMessageTypePhase5    | 2     | Count (18), new types exist                  |
-| TestPhase5Config           | 3     | Default values, validation                   |
+| Class                    | Tests | Coverage                                   |
+| ------------------------ | ----- | ------------------------------------------ |
+| TestConversationMemory   | 3     | History loading, limits, state prepend     |
+| TestStreamingWSTypes     | 3     | STREAM_START/CHUNK/END existence           |
+| TestAgentErrorBoundaries | 5     | Error field, fallbacks, safe agent call    |
+| TestAuditLogModel        | 3     | Table structure, columns, repr             |
+| TestAuditService         | 9     | Tool calls, data access, filters, sanitize |
+| TestAuditEndpoint        | 3     | REST endpoint empty/data/filtered          |
+| TestRateLimiting         | 4     | Under/over limit, window expiry, disabled  |
+| TestDeprecationFixes     | 3     | UTC helpers, removed dead code             |
+| TestWSMessageTypePhase5  | 2     | Count (18), new types exist                |
+| TestPhase5Config         | 3     | Default values, validation                 |
 
 ## Success Criteria
 
