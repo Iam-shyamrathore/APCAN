@@ -133,26 +133,6 @@ class TestConversationManager:
         history = await mgr.get_history(session.session_id)
         assert history == []
 
-    async def test_build_gemini_history(self, db_session: AsyncSession):
-        mgr = ConversationManager(db_session)
-        session = await mgr.create_session()
-
-        await mgr.add_message(session.session_id, MessageRole.USER, "What are my appointments?")
-        await mgr.add_message(
-            session.session_id, MessageRole.ASSISTANT, "You have 2 upcoming appointments."
-        )
-        await mgr.add_message(
-            session.session_id, MessageRole.TOOL, "Called get_patient_appointments"
-        )
-
-        history = await mgr.get_history(session.session_id)
-        gemini_history = mgr.build_gemini_history(history)
-
-        # TOOL and SYSTEM messages are excluded from Gemini history
-        assert len(gemini_history) == 2
-        assert gemini_history[0]["role"] == "user"
-        assert gemini_history[1]["role"] == "model"
-
     async def test_get_active_sessions_count(self, db_session: AsyncSession):
         mgr = ConversationManager(db_session)
 

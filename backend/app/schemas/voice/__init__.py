@@ -4,7 +4,7 @@ Voice AI Schemas - WebSocket messages, conversation, and AI response types
 
 from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, UTC
 from enum import Enum
 
 
@@ -33,6 +33,8 @@ class WSMessageType(str, Enum):
     STREAM_CHUNK = "stream_chunk"
     STREAM_END = "stream_end"
     AGENT_SWITCH = "agent_switch"
+    AGENT_ERROR = "agent_error"
+    RATE_LIMITED = "rate_limited"
 
 
 class WSMessage(BaseModel):
@@ -40,7 +42,7 @@ class WSMessage(BaseModel):
 
     type: WSMessageType
     data: dict = Field(default_factory=dict)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     session_id: Optional[str] = None
 
 

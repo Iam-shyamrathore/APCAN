@@ -70,6 +70,12 @@ class Settings(BaseSettings):
         default=10, ge=1, le=50, description="Max tool-call loops per agent turn"
     )
 
+    # Rate Limiting - Phase 5
+    RATE_LIMIT_ENABLED: bool = Field(default=True, description="Enable rate limiting on WS")
+    RATE_LIMIT_MESSAGES_PER_MINUTE: int = Field(
+        default=30, ge=1, le=300, description="Max messages per session per minute"
+    )
+
     # Gemini AI - Phase 3
     GEMINI_MODEL: str = Field(default="gemini-2.0-flash", description="Gemini model name")
     GEMINI_MAX_OUTPUT_TOKENS: int = Field(default=2048)

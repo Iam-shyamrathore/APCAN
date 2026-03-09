@@ -4,6 +4,8 @@ LangGraph Tool Definitions — wraps FHIR + Calendar operations as LangChain too
 Each tool is a plain async function decorated with @tool.  They are instantiated
 via ``build_tools(db)`` which closes over the database session so every tool
 invocation shares the same transaction context.
+
+Phase 5: All tool calls are logged via AuditService for HIPAA compliance.
 """
 
 import logging
@@ -13,6 +15,7 @@ from langchain_core.tools import tool
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.ai_fhir_service import AIFHIRService
+from app.services.audit_service import AuditService
 from app.services.calendar_service import calendar_service
 
 logger = logging.getLogger(__name__)
@@ -29,8 +32,22 @@ def build_tools(db: AsyncSession) -> list:
 
     The returned tools close over *db* so that every invocation uses the same
     async session (and therefore the same transaction).
+    Phase 5: All tool calls are audited via AuditService.
     """
     fhir = AIFHIRService(db)
+    audit = AuditService(db)
+
+    async def _audit_fhir(tool_name: str, args: dict) -> dict:
+        """Execute a FHIR tool and log the call to the audit trail."""
+        result = await fhir.execute_tool(tool_name, args)
+        success = result.get("success", True)
+        await audit.log_tool_call(
+            tool_name=tool_name,
+            tool_args=args,
+            success=success,
+            error_message=result.get("error") if not success else None,
+        )
+        return result
 
     # -- FHIR Tools (wrap existing service) --------------------------------
 
@@ -41,7 +58,7 @@ def build_tools(db: AsyncSession) -> list:
         birth_date: str | None = None,
     ) -> dict:
         """Search for patients by name, MRN, or birth date. Use when the user asks to find a patient."""
-        return await fhir.execute_tool(
+        return await _audit_fhir(
             "search_patients",
             {"name": name, "mrn": mrn, "birth_date": birth_date},
         )
@@ -49,7 +66,7 @@ def build_tools(db: AsyncSession) -> list:
     @tool
     async def get_patient(patient_id: int) -> dict:
         """Get detailed information about a specific patient by their ID."""
-        return await fhir.execute_tool("get_patient", {"patient_id": patient_id})
+        return await _audit_fhir("get_patient", {"patient_id": patient_id})
 
     @tool
     async def get_patient_encounters(
@@ -57,7 +74,7 @@ def build_tools(db: AsyncSession) -> list:
         status: str | None = None,
     ) -> dict:
         """Get a patient's clinical encounters (visits). Use when asked about visit history."""
-        return await fhir.execute_tool(
+        return await _audit_fhir(
             "get_patient_encounters",
             {"patient_id": patient_id, "status": status},
         )
@@ -68,7 +85,7 @@ def build_tools(db: AsyncSession) -> list:
         status: str | None = None,
     ) -> dict:
         """Get a patient's appointments. Use when asked about upcoming or past appointments."""
-        return await fhir.execute_tool(
+        return await _audit_fhir(
             "get_patient_appointments",
             {"patient_id": patient_id, "status": status},
         )
@@ -81,7 +98,7 @@ def build_tools(db: AsyncSession) -> list:
         service_type: str = "general",
     ) -> dict:
         """Book a new appointment for a patient. Use when the user wants to schedule a visit."""
-        return await fhir.execute_tool(
+        return await _audit_fhir(
             "book_appointment",
             {
                 "patient_id": patient_id,
@@ -97,7 +114,7 @@ def build_tools(db: AsyncSession) -> list:
         reason: str | None = None,
     ) -> dict:
         """Cancel an existing appointment. Use when the user wants to cancel a scheduled visit."""
-        return await fhir.execute_tool(
+        return await _audit_fhir(
             "cancel_appointment",
             {"appointment_id": appointment_id, "reason": reason},
         )
@@ -108,7 +125,7 @@ def build_tools(db: AsyncSession) -> list:
         code: str | None = None,
     ) -> dict:
         """Get a patient's clinical observations (vitals, lab results). Use for vitals or test results."""
-        return await fhir.execute_tool(
+        return await _audit_fhir(
             "get_patient_observations",
             {"patient_id": patient_id, "code": code},
         )
@@ -128,7 +145,7 @@ def build_tools(db: AsyncSession) -> list:
             available = await calendar_service.check_availability(
                 start=start, end=end, calendar_id=calendar_id
             )
-            return {
+            result = {
                 "success": True,
                 "data": {
                     "available": available,
@@ -136,8 +153,19 @@ def build_tools(db: AsyncSession) -> list:
                     "end": end.isoformat(),
                 },
             }
+            await audit.log_tool_call(
+                tool_name="check_provider_availability",
+                tool_args={"start_time": start_time, "end_time": end_time},
+            )
+            return result
         except Exception as e:
             logger.exception("check_provider_availability failed")
+            await audit.log_tool_call(
+                tool_name="check_provider_availability",
+                tool_args={"start_time": start_time, "end_time": end_time},
+                success=False,
+                error_message=str(e),
+            )
             return {"success": False, "error": str(e)}
 
     @tool
@@ -161,7 +189,7 @@ def build_tools(db: AsyncSession) -> list:
                 attendees=attendees,
                 calendar_id=calendar_id,
             )
-            return {
+            result = {
                 "success": True,
                 "data": {
                     "event_id": event.get("id"),
@@ -170,8 +198,19 @@ def build_tools(db: AsyncSession) -> list:
                     "end": end.isoformat(),
                 },
             }
+            await audit.log_tool_call(
+                tool_name="create_calendar_event",
+                tool_args={"summary": summary, "start_time": start_time},
+            )
+            return result
         except Exception as e:
             logger.exception("create_calendar_event failed")
+            await audit.log_tool_call(
+                tool_name="create_calendar_event",
+                tool_args={"summary": summary, "start_time": start_time},
+                success=False,
+                error_message=str(e),
+            )
             return {"success": False, "error": str(e)}
 
     @tool
@@ -182,9 +221,19 @@ def build_tools(db: AsyncSession) -> list:
         """Cancel (delete) a Google Calendar event by its event ID."""
         try:
             await calendar_service.delete_event(event_id=event_id, calendar_id=calendar_id)
+            await audit.log_tool_call(
+                tool_name="cancel_calendar_event",
+                tool_args={"event_id": event_id},
+            )
             return {"success": True, "data": {"event_id": event_id, "status": "cancelled"}}
         except Exception as e:
             logger.exception("cancel_calendar_event failed")
+            await audit.log_tool_call(
+                tool_name="cancel_calendar_event",
+                tool_args={"event_id": event_id},
+                success=False,
+                error_message=str(e),
+            )
             return {"success": False, "error": str(e)}
 
     return [

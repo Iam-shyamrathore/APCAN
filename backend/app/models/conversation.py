@@ -4,7 +4,7 @@ HIPAA-compliant conversation tracking for audit trails
 """
 
 import enum
-from datetime import datetime
+from datetime import datetime, UTC
 from sqlalchemy import (
     Integer,
     String,
@@ -59,7 +59,7 @@ class ConversationSession(BaseModel):
         default=ConversationStatus.ACTIVE,
         nullable=False,
     )
-    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     metadata_json: Mapped[dict | None] = mapped_column(
         JSON, nullable=True, doc="Extra session metadata (device, language, etc.)"

@@ -12,6 +12,7 @@ from app.models.conversation import (
     ConversationStatus,
     MessageRole,
 )
+from app.models.audit_log import AuditLog
 
 __all__ = [
     "BaseModel",
@@ -25,4 +26,5 @@ __all__ = [
     "ConversationMessage",
     "ConversationStatus",
     "MessageRole",
+    "AuditLog",
 ]

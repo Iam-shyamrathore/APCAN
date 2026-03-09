@@ -66,29 +66,33 @@ def _parse_intent(text: str) -> IntentCategory:
 
 async def _classify_intent(state: AgentState) -> dict:
     """Use a lightweight Gemini call to classify the user's intent."""
-    model = ChatGoogleGenerativeAI(
-        model=settings.GEMINI_MODEL,
-        google_api_key=settings.GOOGLE_API_KEY,
-        temperature=0.0,  # deterministic classification
-        max_output_tokens=20,
-    )
+    try:
+        model = ChatGoogleGenerativeAI(
+            model=settings.GEMINI_MODEL,
+            google_api_key=settings.GOOGLE_API_KEY,
+            temperature=0.0,  # deterministic classification
+            max_output_tokens=20,
+        )
 
-    # Extract the last user message
-    user_msg = ""
-    for msg in reversed(state["messages"]):
-        if isinstance(msg, HumanMessage):
-            user_msg = msg.content
-            break
+        # Extract the last user message
+        user_msg = ""
+        for msg in reversed(state["messages"]):
+            if isinstance(msg, HumanMessage):
+                user_msg = msg.content
+                break
 
-    if not user_msg:
+        if not user_msg:
+            return {"intent": IntentCategory.GENERAL.value, "current_agent": "orchestrator"}
+
+        response = await model.ainvoke(
+            [SystemMessage(content=CLASSIFIER_SYSTEM_PROMPT), HumanMessage(content=user_msg)]
+        )
+        intent = _parse_intent(response.content)
+        logger.info("Intent classified: '%s' → %s", user_msg[:80], intent.value)
+        return {"intent": intent.value, "current_agent": "orchestrator"}
+    except Exception:
+        logger.exception("Intent classification failed, defaulting to general")
         return {"intent": IntentCategory.GENERAL.value, "current_agent": "orchestrator"}
-
-    response = await model.ainvoke(
-        [SystemMessage(content=CLASSIFIER_SYSTEM_PROMPT), HumanMessage(content=user_msg)]
-    )
-    intent = _parse_intent(response.content)
-    logger.info("Intent classified: '%s' → %s", user_msg[:80], intent.value)
-    return {"intent": intent.value, "current_agent": "orchestrator"}
 
 
 def _route_to_agent(state: AgentState) -> str:
@@ -106,17 +110,31 @@ def _route_to_agent(state: AgentState) -> str:
 
 async def _general_response(state: AgentState) -> dict:
     """Handle general/unclassified messages with a direct Gemini response."""
-    model = ChatGoogleGenerativeAI(
-        model=settings.GEMINI_MODEL,
-        google_api_key=settings.GOOGLE_API_KEY,
-        temperature=settings.GEMINI_TEMPERATURE,
-        max_output_tokens=settings.GEMINI_MAX_OUTPUT_TOKENS,
-    )
-    messages = state["messages"]
-    if not messages or not isinstance(messages[0], SystemMessage):
-        messages = [SystemMessage(content=GENERAL_SYSTEM_PROMPT)] + list(messages)
-    response = await model.ainvoke(messages)
-    return {"messages": [response], "current_agent": "general"}
+    try:
+        model = ChatGoogleGenerativeAI(
+            model=settings.GEMINI_MODEL,
+            google_api_key=settings.GOOGLE_API_KEY,
+            temperature=settings.GEMINI_TEMPERATURE,
+            max_output_tokens=settings.GEMINI_MAX_OUTPUT_TOKENS,
+        )
+        messages = state["messages"]
+        if not messages or not isinstance(messages[0], SystemMessage):
+            messages = [SystemMessage(content=GENERAL_SYSTEM_PROMPT)] + list(messages)
+        response = await model.ainvoke(messages)
+        return {"messages": [response], "current_agent": "general"}
+    except Exception:
+        logger.exception("General response failed")
+        from langchain_core.messages import AIMessage as _AIMsg
+
+        fallback = _AIMsg(
+            content="I'm sorry, I'm having trouble responding right now. "
+            "Please try again in a moment."
+        )
+        return {
+            "messages": [fallback],
+            "current_agent": "general",
+            "error": "General response failed",
+        }
 
 
 def build_orchestrator(db: AsyncSession) -> Any:
@@ -137,22 +155,41 @@ def build_orchestrator(db: AsyncSession) -> Any:
     care_graph = build_care_graph(all_tools)
     admin_graph = build_admin_graph(all_tools)
 
-    # Wrapper nodes that invoke the compiled subgraphs
+    # --- Phase 5: Agent error boundaries ---
+    # Each wrapper catches exceptions so one agent failure doesn't crash the session.
+
+    async def _safe_agent_call(
+        name: str, graph, state: AgentState
+    ) -> dict:
+        """Run an agent subgraph with error handling."""
+        try:
+            result = await graph.ainvoke(state)
+            return {"messages": result["messages"], "current_agent": name}
+        except Exception:
+            logger.exception("Agent '%s' failed", name)
+            from langchain_core.messages import AIMessage as _AIMsg
+
+            fallback = _AIMsg(
+                content=f"I'm sorry, the {name} assistant encountered an issue. "
+                "Could you rephrase your request or try again?"
+            )
+            return {
+                "messages": [fallback],
+                "current_agent": name,
+                "error": f"Agent '{name}' failed unexpectedly",
+            }
+
     async def run_intake(state: AgentState) -> dict:
-        result = await intake_graph.ainvoke(state)
-        return {"messages": result["messages"], "current_agent": "intake"}
+        return await _safe_agent_call("intake", intake_graph, state)
 
     async def run_scheduling(state: AgentState) -> dict:
-        result = await scheduling_graph.ainvoke(state)
-        return {"messages": result["messages"], "current_agent": "scheduling"}
+        return await _safe_agent_call("scheduling", scheduling_graph, state)
 
     async def run_care(state: AgentState) -> dict:
-        result = await care_graph.ainvoke(state)
-        return {"messages": result["messages"], "current_agent": "care"}
+        return await _safe_agent_call("care", care_graph, state)
 
     async def run_admin(state: AgentState) -> dict:
-        result = await admin_graph.ainvoke(state)
-        return {"messages": result["messages"], "current_agent": "admin"}
+        return await _safe_agent_call("admin", admin_graph, state)
 
     # Build the top-level orchestrator graph
     graph = StateGraph(AgentState)

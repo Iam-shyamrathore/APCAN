@@ -1,6 +1,7 @@
 """
 Voice Router - WebSocket endpoint for real-time voice AI interactions.
 Phase 4: LangGraph multi-agent orchestration replaces the manual tool loop.
+Phase 5: Multi-turn conversation memory, streaming, error boundaries.
 """
 
 import json
@@ -12,10 +13,11 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query, H
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.conversation import MessageRole as _MessageRole
+
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import decode_token
-from app.models.conversation import MessageRole
 from app.schemas.voice import (
     WSMessageType,
     ConversationSessionResponse,
@@ -26,12 +28,40 @@ from app.agents.orchestrator import build_orchestrator
 from app.agents.state import make_initial_state
 from app.services.conversation_manager import ConversationManager
 
+import collections
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/voice", tags=["Voice AI"])
 
 # Track active WebSocket connections (in-process; use Redis for multi-worker)
 _active_connections: dict[str, WebSocket] = {}
+
+# Phase 5: Per-session sliding window rate limiter (in-memory)
+_rate_windows: dict[str, collections.deque] = {}
+
+
+def _check_rate_limit(session_id: str) -> bool:
+    """
+    Return True if the request is within rate limits, False if exceeded.
+    Uses a sliding window of timestamps per session.
+    """
+    if not settings.RATE_LIMIT_ENABLED:
+        return True
+
+    now = time.monotonic()
+    window = _rate_windows.setdefault(session_id, collections.deque())
+
+    # Remove timestamps older than 60 seconds
+    cutoff = now - 60.0
+    while window and window[0] < cutoff:
+        window.popleft()
+
+    if len(window) >= settings.RATE_LIMIT_MESSAGES_PER_MINUTE:
+        return False
+
+    window.append(now)
+    return True
 
 
 def _authenticate_ws_token(token: str | None) -> dict | None:
@@ -118,8 +148,17 @@ async def voice_websocket(
                     await _send_ws(websocket, WSMessageType.ERROR, {"error": "Empty text input"})
                     continue
 
+                # Phase 5: Rate limiting
+                if not _check_rate_limit(session.session_id):
+                    await _send_ws(
+                        websocket,
+                        WSMessageType.RATE_LIMITED,
+                        {"error": "Rate limit exceeded. Please wait before sending more messages."},
+                    )
+                    continue
+
                 # Persist user message
-                await conversation_mgr.add_message(session.session_id, MessageRole.USER, text)
+                await conversation_mgr.add_message(session.session_id, _MessageRole.USER, text)
 
                 # Run through LangGraph orchestrator
                 response = await _process_ai_turn(
@@ -135,6 +174,14 @@ async def voice_websocket(
                 # Update patient context for future turns
                 if response.get("patient_context"):
                     patient_context = response["patient_context"]
+
+                # Phase 5: Notify client if an agent error occurred
+                if response.get("error"):
+                    await _send_ws(
+                        websocket,
+                        WSMessageType.AGENT_ERROR,
+                        {"error": response["error"], "agent": response.get("agent", "unknown")},
+                    )
 
                 # Send final text response
                 await _send_ws(
@@ -184,6 +231,7 @@ async def voice_websocket(
         # Cleanup
         if session:
             _active_connections.pop(session.session_id, None)
+            _rate_windows.pop(session.session_id, None)
             await conversation_mgr.end_session(session.session_id)
 
 
@@ -201,68 +249,157 @@ async def _process_ai_turn(
 
     The orchestrator classifies intent → routes to the appropriate agent →
     the agent uses tools autonomously via its subgraph → returns final text.
+
+    Phase 5: Loads prior conversation history so agents have multi-turn context.
+    Phase 5: Streams tokens via astream_events() for real-time voice UX.
     """
     start = time.monotonic()
     tool_names: list[str] = []
 
-    # Build initial state with the user message
+    # --- Phase 5: Load conversation history for multi-turn context ---
+    prior_messages: list[HumanMessage | AIMessage] = []
+    try:
+        history = await conversation_mgr.get_history(session_id)
+        for msg in history:
+            if msg.role == _MessageRole.USER:
+                prior_messages.append(HumanMessage(content=msg.content))
+            elif msg.role == _MessageRole.ASSISTANT:
+                prior_messages.append(AIMessage(content=msg.content))
+    except Exception:
+        logger.warning("Failed to load conversation history for session %s", session_id)
+
+    # Build initial state with history + current user message
     state = make_initial_state(
         session_id=session_id,
         user_id=user_id,
         patient_context=patient_context,
     )
-    state["messages"] = [HumanMessage(content=user_text)]
+    state["messages"] = prior_messages + [HumanMessage(content=user_text)]
 
-    # Run the graph
-    result = await orchestrator.ainvoke(
-        state,
-        config={"recursion_limit": settings.LANGGRAPH_RECURSION_LIMIT},
-    )
+    config = {"recursion_limit": settings.LANGGRAPH_RECURSION_LIMIT}
 
-    latency_ms = int((time.monotonic() - start) * 1000)
-    agent_name = result.get("current_agent", "general")
-
-    # Notify client which agent handled the request
-    await _send_ws(
-        websocket,
-        WSMessageType.AGENT_SWITCH,
-        {"agent": agent_name},
-    )
-
-    # Extract tool calls and final text from the message history
+    # --- Phase 5: Streaming response via astream_events() ---
     final_text = ""
-    for msg in result.get("messages", []):
-        if isinstance(msg, AIMessage):
-            if hasattr(msg, "tool_calls") and msg.tool_calls:
-                for tc in msg.tool_calls:
-                    tool_names.append(tc.get("name", "unknown"))
+    agent_name = "general"
+    collected_patient_context = patient_context
+    streaming_started = False
+    chunk_index = 0
+    agent_error: str | None = None
+
+    try:
+        async for event in orchestrator.astream_events(state, config=config, version="v2"):
+            kind = event.get("event", "")
+
+            # Track which agent is active
+            if kind == "on_chain_start" and event.get("name") in (
+                "intake",
+                "scheduling",
+                "care",
+                "admin",
+                "general",
+            ):
+                agent_name = event["name"]
+                await _send_ws(
+                    websocket,
+                    WSMessageType.AGENT_SWITCH,
+                    {"agent": agent_name},
+                )
+
+            # Stream LLM tokens to client
+            elif kind == "on_chat_model_stream":
+                chunk = event.get("data", {}).get("chunk")
+                if chunk and hasattr(chunk, "content") and chunk.content:
+                    if not streaming_started:
+                        await _send_ws(
+                            websocket,
+                            WSMessageType.STREAM_START,
+                            {"agent": agent_name},
+                        )
+                        streaming_started = True
                     await _send_ws(
                         websocket,
-                        WSMessageType.TOOL_CALL,
-                        {"tool_name": tc.get("name"), "arguments": tc.get("args", {})},
+                        WSMessageType.STREAM_CHUNK,
+                        {"chunk": chunk.content, "chunk_index": chunk_index},
                     )
-            if msg.content:
-                final_text = msg.content  # Last AI message is the final response
-        elif isinstance(msg, ToolMessage):
+                    chunk_index += 1
+
+            # Capture tool calls
+            elif kind == "on_tool_start":
+                tool_name = event.get("name", "unknown")
+                tool_names.append(tool_name)
+                await _send_ws(
+                    websocket,
+                    WSMessageType.TOOL_CALL,
+                    {"tool_name": tool_name, "arguments": event.get("data", {}).get("input", {})},
+                )
+
+            # Capture tool results
+            elif kind == "on_tool_end":
+                tool_name = event.get("name", "unknown")
+                output = event.get("data", {}).get("output", "")
+                await _send_ws(
+                    websocket,
+                    WSMessageType.TOOL_RESULT,
+                    {"tool_name": tool_name, "success": True},
+                )
+                # Persist tool interaction
+                content_str = str(output)[:500] if output else ""
+                await conversation_mgr.add_message(
+                    session_id,
+                    _MessageRole.TOOL,
+                    f"Called {tool_name}",
+                    tool_calls={"name": tool_name},
+                    tool_results={"content": content_str},
+                )
+
+            # Capture final state from chain end
+            elif kind == "on_chain_end" and event.get("name") == "LangGraph":
+                result = event.get("data", {}).get("output", {})
+                if isinstance(result, dict):
+                    agent_name = result.get("current_agent", agent_name)
+                    collected_patient_context = result.get(
+                        "patient_context", patient_context
+                    )
+                    agent_error = result.get("error")
+                    # Extract final text from last AI message
+                    for msg in reversed(result.get("messages", [])):
+                        if isinstance(msg, AIMessage) and msg.content:
+                            final_text = msg.content
+                            break
+
+        if streaming_started:
             await _send_ws(
                 websocket,
-                WSMessageType.TOOL_RESULT,
-                {"tool_name": msg.name or "unknown", "success": True},
+                WSMessageType.STREAM_END,
+                {"agent": agent_name},
             )
-            # Persist tool interaction
-            await conversation_mgr.add_message(
-                session_id,
-                MessageRole.TOOL,
-                f"Called {msg.name}",
-                tool_calls={"name": msg.name},
-                tool_results={"content": msg.content[:500] if msg.content else ""},
-            )
+
+    except Exception:
+        logger.exception("Streaming failed for session %s, falling back", session_id)
+        # Fallback: non-streaming ainvoke
+        result = await orchestrator.ainvoke(state, config=config)
+        agent_name = result.get("current_agent", "general")
+        collected_patient_context = result.get("patient_context", patient_context)
+        await _send_ws(
+            websocket, WSMessageType.AGENT_SWITCH, {"agent": agent_name}
+        )
+        for msg in result.get("messages", []):
+            if isinstance(msg, AIMessage) and msg.content:
+                final_text = msg.content
+            elif isinstance(msg, ToolMessage):
+                await _send_ws(
+                    websocket,
+                    WSMessageType.TOOL_RESULT,
+                    {"tool_name": msg.name or "unknown", "success": True},
+                )
+
+    latency_ms = int((time.monotonic() - start) * 1000)
 
     # Persist assistant response
     if final_text:
         await conversation_mgr.add_message(
             session_id,
-            MessageRole.ASSISTANT,
+            _MessageRole.ASSISTANT,
             final_text,
             latency_ms=latency_ms,
         )
@@ -272,8 +409,10 @@ async def _process_ai_turn(
         "agent": agent_name,
         "tool_names": tool_names,
         "latency_ms": latency_ms,
-        "patient_context": result.get("patient_context", patient_context),
+        "patient_context": collected_patient_context,
+        "error": agent_error,
     }
+
 
 
 async def _send_ws(websocket: WebSocket, msg_type: WSMessageType, data: dict) -> None:

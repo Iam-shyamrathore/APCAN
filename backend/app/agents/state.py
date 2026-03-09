@@ -46,6 +46,7 @@ class AgentState(TypedDict):
     user_id: int | None
     tool_results: list[dict[str, Any]]
     metadata: dict[str, Any]
+    error: str | None
 
 
 def make_initial_state(
@@ -64,4 +65,5 @@ def make_initial_state(
         user_id=user_id,
         tool_results=[],
         metadata=metadata or {},
+        error=None,
     )

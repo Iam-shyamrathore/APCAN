@@ -5,7 +5,7 @@ Handles session lifecycle, message persistence, and context windowing.
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, UTC
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,7 +43,7 @@ class ConversationManager:
             user_id=user_id,
             patient_id=patient_id,
             status=ConversationStatus.ACTIVE,
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(UTC),
             metadata_json=metadata,
         )
         self.db.add(session)
@@ -69,7 +69,7 @@ class ConversationManager:
             return None
 
         session.status = ConversationStatus.COMPLETED
-        session.ended_at = datetime.utcnow()
+        session.ended_at = datetime.now(UTC)
         await self.db.commit()
         await self.db.refresh(session)
         logger.info("Ended conversation session %s", session.session_id)
@@ -126,23 +126,6 @@ class ConversationManager:
             .limit(max_messages)
         )
         return list(result.scalars().all())
-
-    def build_gemini_history(self, messages: list[ConversationMessage]) -> list[dict]:
-        """
-        Convert persisted messages into Gemini chat history format.
-
-        Returns:
-            List of {"role": "user"|"model", "parts": ["text"]}
-        """
-        history: list[dict] = []
-        for msg in messages:
-            if msg.role == MessageRole.USER:
-                history.append({"role": "user", "parts": [msg.content]})
-            elif msg.role == MessageRole.ASSISTANT:
-                history.append({"role": "model", "parts": [msg.content]})
-            # SYSTEM and TOOL messages are not included in Gemini history
-            # (system prompt is set at model level, tool results handled inline)
-        return history
 
     async def get_active_sessions_count(self) -> int:
         """Count currently active sessions (for connection limiting)."""

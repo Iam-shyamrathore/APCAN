@@ -102,12 +102,12 @@ class TestVoiceSchemas:
 
     def test_conversation_session_response(self):
         from app.schemas.voice import ConversationSessionResponse
-        from datetime import datetime
+        from datetime import datetime, UTC
 
         resp = ConversationSessionResponse(
             session_id="abc123",
             status="active",
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(UTC),
             message_count=5,
         )
         assert resp.session_id == "abc123"

@@ -300,8 +300,8 @@ class TestWSMessageTypePhase4:
         assert WSMessageType.AGENT_SWITCH == "agent_switch"
 
     def test_all_message_types_count(self):
-        # Phase 3 had 15 types, Phase 4 adds 1 (AGENT_SWITCH) = 16
-        assert len(WSMessageType) == 16
+        # Phase 3: 15, Phase 4: +1 (AGENT_SWITCH), Phase 5: +2 (AGENT_ERROR, RATE_LIMITED) = 18
+        assert len(WSMessageType) == 18
 
 
 # --- Appointment Model Tests ---
